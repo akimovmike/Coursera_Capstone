@@ -96,7 +96,7 @@ In addition, let's check, whether the frequency of particular crime types correl
 ## The connecion between venue counts and crime severity
 
 Table 1.
-
+|Parameter          |Value          |Parameter          |Value  |
 |-------------------|---------------|-------------------|-------|
 |Dep. Variable:     |	score       |	R-squared:	    | 0.301 |
 |Model:	            |OLS	Adj.    | R-squared:        |0.243  |  
