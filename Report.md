@@ -45,11 +45,7 @@ The computations were performed using the [IBM Watson ML Studio](https://www.ibm
 ## Crime cases data preparation
 
 The crime rates data was obtained from the [opendata.dc.gov](https://opendata.dc.gov/datasets/crime-incidents-in-2019) website. The dataset contained 1641 crime records for 9 categories: 
-'THEFT/OTHER', 'THEFT F/AUTO', 'BURGLARY', 'MOTOR VEHICLE THEFT', 'ASSAULT W/DANGEROUS WEAPON', 'ROBBERY', 'HOMICIDE', 'SEX ABUSE',      and 'ARSON'. 
-The crime counts for different crime types were (not) evenly distributed (Figure 1).
-
-
-Figure 1. The counts of individual crime types in Washington DC.
+'THEFT/OTHER', 'THEFT F/AUTO', 'BURGLARY', 'MOTOR VEHICLE THEFT', 'ASSAULT W/DANGEROUS WEAPON', 'ROBBERY', 'HOMICIDE', 'SEX ABUSE',      and 'ARSON'. No missing data were found for the Neighborhood cluster and Crime type featues, which were required for the analysis.
 
 ## Crime severity scores
 
@@ -67,39 +63,46 @@ For each neighborhood, geographical coordinates were obtained using the geocoder
 
 ## Obtainig venue counts from the Foursquare database
 
-To this end, we have a list of Washington DC Neighborhoods, and now we want to obtain a count of culture, sports, and spiritual objects first for each neighborhood, and then for the neighborhood clusters. For this task, we will use the Foursquare api.
+First of all, two lists were obtained from the Foursquare database: a list of all venues for each neighborhood (defined as a circle with the radius 500 around the neighborhood center) and a nested list of venue categories. The key categories were manually selected:
+- Culture venues:
+    - Art Gallery
+    - Concert Hall
+    - Museum
+- Sports venues:
+    - College Stadium
+    - Gym / Fitness Center
+    - College Gym
+- Religious venues:
+    - Spiritual Center
+    
+After that, a function was constructed to recursively store the sub-categories of each of the chosen categories based on the whole category list. In this way, three category id lists were constructed for each of the target venue types.
 
+The next step was to filter the total venue list for each neighborhood to include only those from the target category lists and to calculate the appropriate venue count. For some neighborhoods, there were no venues of the particular categories, so the reseltant NaN values were replaced with zeros. 
 
-The function below will obtain a list of all venues near approximately belonging to the neighborhood. In addition, it will store the venue category id to filter the required venue types later.
+The final step was to sum up the neighborhoods venues counts and crime scores within each neighborhood cluster. The crime score was estimated using the following equation:
 
-Now we will obtain the list of all available categories from the Fourquare. This is required, as the categories could be nested, and we also need the subcategories for the filter to work correctly. Now we define a function to recursively scan the obtained categories and save only those belonging to the supplied category id list or being the appropriate subcategories
-
-Now we define the base categories list and perform the filtering
-
-Now we convert the category ids of the obtained venues and remove those venues, which do not have an assigned category from our lists
-
-Now we calculate the venue count for each venue type (church, sports and culture) for each neighborhood
-
-The next step is to merge the crimes dataset and the venue count dataset. For some neighborhoods, there are no venues of the required category, so we'll replace the missing data with zeros. Now we sum up the neighborhoods venues counts and crime scores within each cluster. 
+_score = sum(crime_type_severity_score*crime_type_cases) for all crime types_
 
 ## Statistical analysis of correlations
 
-Finally, we apply the ordinary least squares model (OLM) to the constructed data to estimate the influence of each venue type on the crimes severity, and test whether such influence is statistically significant
+Finally, an ordinary least squares model (OLM) was applied to the constructed data to estimate the influence of each venue type on the crimes severity, and test whether such influence is statistically significant. The model equation was as follows:
 
-In addition, let's check, whether the frequency of particular crime types correlate with particular venue counts form our lists
+_crime_score = W1*culture_venues_count + W2*sports_venues_count + W3*spiritual_venues_count + C_
 
-
+In addition, the Pearson's r correlation coefficient between the frequencies of particular crime types and the particular venue counts was calculated.
 
 
 # Results
 
 ## The connecion between venue counts and crime severity
 
-Table 1.
+The results of the linear regression model fitting to the data are presented in tables 1 and 2 below. 
+
+Table 1. The parameters and fit quality of the model
 |Parameter          |Value          |Parameter          |Value  |
 |-------------------|---------------|-------------------|-------|
 |Dep. Variable:     |	score       |	R-squared:	    | 0.301 |
-|Model:	            |OLS	Adj.    | R-squared:        |0.243  |  
+|Model:	            |OLS	        |Adj.  R-squared:   |0.243  |  
 |Method:	        |Least Squares	|F-statistic:	    |5.163  |
 |No. Observations:	|40	            |Prob (F-statistic):|0.00452|
 |AIC:	            |941.4	        |Log-Likelihood:	|-466.71|	
@@ -107,35 +110,39 @@ Table 1.
 |Df Model:	        |3              |                   |       |		
 |Covariance Type:	|nonrobust      |                   |	    |	
 
-Table 2.
+Table 2. The statistical significance of the model coefficients
 
-|       |	coef	|std err	|t	    |P>abs(t)	|[0.025	    |0.975]  |
+|       |	coef	|std err	|_t_    |P>\|_t_\|	|[0.025	    |0.975]  |
 |-------|-----------|-----------|-------|-----------|-----------|--------|
 |const	|2.662e+04	|5749.002	|4.630	|0.000	    |1.5e+04	|3.83e+04|
 |church	|641.5834	|460.168	|1.394	|0.172	    |-291.681	|1574.848|
 |culture|-84.6749	|39.947	    |-2.120	|0.041	    |-165.691	|-3.659  |
 |sport	|89.6720	|25.484	    |3.519	|0.001	    |37.987	    |141.357 |
 
-First of all, we note that the model has quite low R-squared value, indicating that the count of the selected venues is not enough to explain the crime severities, or that the dependency is non-linear.
+First of all, it should be noted that the model has quite low R-squared value, indicating that the count of the selected venues is not enough to explain the crime severities, or that the dependency is non-linear.
 
-The t values for sports and culture object counts are below 0.05, so their influence is statistically significant. The t value for the churches count, on the other hand, is not, and thus churches' influence is not a statistically significant one.
+The _t_ values for sports and culture venues counts are below 0.05, so their influence is statistically significant. The _t_ value for the spiritauls venues ('church') count, on the other hand, is not, and thus spiritual venues' influence is not a statistically significant one.
 
-The coefficient values indicate that the influence of sports venues on crime severity is positive, and culture objects count negative, as was expected. The sports objects have somewhat larger influence (the coefficient absolute value is 3.52 vs. 2.12 for the culture venues).
+The coefficient values indicate that the influence of sports venues counts on crime severity is positive, and culture venues count negative, as was expected. The sports venues have somewhat larger influence (the coefficient absolute value is 3.52 vs. 2.12 for the culture venues).
 
 ## Correlation of venue counts with crime types
 
-![Figure 2](https://github.com/akimovmike/Coursera_Capstone/blob/master/corrpolot.png)
+The Pearson's r correlation coefficients between venue counts and cases counts for various crime types are depicted on Figure 1.
 
-Figure 2.
+![Figure 1](https://github.com/akimovmike/Coursera_Capstone/blob/master/corrpolot.png)
 
-From here, we note that the more culture- and sports-related venues we have, the more theft cases would be. This could be attributed to the mass people gathering places, in which theft could be easier to conduct. On the other hand, more severe crimes have a small negative correlation with such venues.
+Figure 1. Correlation of venue counts with crime types
+
+The more culture- and sports-related venues a neighborhood cluster has, the more theft cases would be. On the other hand, more severe crimes have a small negative correlation with such venues.
 
 
 # Discussion
 
 In this project, the correlation of crime rates and crime severity with the amount of culture, sports, and religious venues was estimated. For the sake of simplicity, the estimation was performed only for one year (2019) and one city (Washington DC). For this setting, a statistically significant positive correlation was found; for the sports venues, it was positive (that is, the more sports venues, the more severe crimes were registered in a given neighborhood), and for the culture venues, it was negative (the more culture venues, the less severe crimes were registered). 
 
+The positive correlation between theft case counts and culture, religious, and sports objects could be attributed to that such venues are the mass people gathering places, in which theft could be easier to conduct.
+
 
 # Conclusion
 
-Based on Washington DC 2019 data, crime severity rates display a positive correlation with sports venues count and negative correlation with culture venues counts. No statistically significant  correlation was found between crime severity rates and religious venues counts.
+Based on Washington DC 2019 data, crime severity rates display a positive correlation with sports venues count and negative correlation with culture venues counts. No statistically significant  correlation was found between crime severity rates and religious venues counts. In the areas with many sports, culture, and religious venues theft rates are much higher than in other areas.
